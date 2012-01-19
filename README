@@ -1,0 +1,11 @@
+Traffic accounting using netfilter through iptables
+
+Accounting rules per IP in the lan address range are set up automatically each time this script is started.
+The script is tailored towards OpenWRT.
+The code is very simple at the cost of a few shortcomings:
+- accounting is done on an IP address base instead of on a MAC address base
+- very many addresses may be monitored
+- resetting of the counters must be done manually
+- inspection must be done through iptables
+The first shortcoming can in general be alleviated by extending the dhcp lease time.
+The second shortcoming can be alleviated by specifying a stringent netmask.

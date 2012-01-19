@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2012, Jouke Witteveen
+
+START=47
+INTERFACE="lan"
+CHAIN="accounting"
+IPTABLES=iptables
+AWK_SCRIPT='\
+function goodOctets(base, mask, array,   bit, i, top) {
+	array[top = 1] = base
+	for (bit = 1; and(bit, 0xff); bit *= 2)
+		if (and(mask, bit) == 0){
+			for (i = 1; i <= top; ++i)
+				array[top + i] = xor(array[i], bit)
+			top *= 2
+		}
+	return top
+}
+
+BEGIN {
+	FS = OFS = "."
+	if(split(ARGV[1], ipaddr) != 4 || split(ARGV[2], netmask) != 4)
+		exit 1
+	goodOctets(ipaddr[1], netmask[1], A)
+	goodOctets(ipaddr[2], netmask[2], B)
+	goodOctets(ipaddr[3], netmask[3], C)
+	goodOctets(ipaddr[4], netmask[4], D)
+	for (a in A)
+		for (b in B)
+			for (c in C)
+				for (d in D)
+					print A[a], B[b], C[c], D[d]
+}'
+
+start() {
+	$IPTABLES -N "$CHAIN" || exit 1
+	config_load network
+	for ipaddr in $(awk "$AWK_SCRIPT" "$(config_get "$INTERFACE" ipaddr)" "$(config_get "$INTERFACE" netmask)"); do
+		$IPTABLES -A "$CHAIN" -s "$ipaddr"
+		$IPTABLES -A "$CHAIN" -d "$ipaddr"
+	done
+	$IPTABLES -I FORWARD -j "$CHAIN"
+}
+
+stop() {
+	$IPTABLES -D FORWARD -j "$CHAIN"
+	$IPTABLES -F "$CHAIN"
+	$IPTABLES -X "$CHAIN"
+}
