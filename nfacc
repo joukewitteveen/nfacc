@@ -35,15 +35,20 @@ BEGIN {
 start() {
 	$IPTABLES -N "$CHAIN" || exit 1
 	config_load network
-	for ipaddr in $(awk "$AWK_SCRIPT" "$(config_get "$INTERFACE" ipaddr)" "$(config_get "$INTERFACE" netmask)"); do
-		$IPTABLES -A "$CHAIN" -s "$ipaddr"
-		$IPTABLES -A "$CHAIN" -d "$ipaddr"
-	done
-	$IPTABLES -I FORWARD -j "$CHAIN"
+	(
+		printf "*filter\n:$CHAIN -\n"
+		for ipaddr in $(awk "$AWK_SCRIPT" "$(config_get "$INTERFACE" ipaddr)" "$(config_get "$INTERFACE" netmask)"); do
+			printf "-A $CHAIN %s $ipaddr\n" "-s" "-d"
+		done
+		printf "-I FORWARD -j $CHAIN\nCOMMIT\n"
+	) | ${IPTABLES}-restore --noflush
 }
 
 stop() {
 	$IPTABLES -D FORWARD -j "$CHAIN"
-	$IPTABLES -F "$CHAIN"
-	$IPTABLES -X "$CHAIN"
+	$IPTABLES -F "$CHAIN" && $IPTABLES -X "$CHAIN"
+}
+
+reload() {
+	$IPTABLES -Z "$CHAIN" &> /dev/null
 }
